@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>REKAPAN VOUCHER NSNET</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Flatpickr Library untuk Kalender Format Indonesia DD/MM/YYYY -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #0f172a; color: #f8fafc; }
+        .gold-gradient { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+        .table-input { background-color: transparent; border: 1px solid transparent; transition: all 0.2s ease; width: 100%; border-radius: 0.375rem; padding: 0.25rem 0.5rem; }
+        .table-input:hover { border-color: #334155; background-color: #1e293b; }
+        .table-input:focus { outline: none; border-color: #f59e0b; background-color: #0f172a; box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2); }
+        
+        /* Style Efek Neon Glow Card */
+        .card-glow-neon {
+            border: 2px solid rgba(34, 211, 238, 0.85) !important;
+            box-shadow: 0 0 15px rgba(34, 211, 238, 0.45), inset 0 0 10px rgba(34, 211, 238, 0.15) !important;
+            transition: all 0.3s ease;
+        }
+        .card-glow-neon:hover {
+            box-shadow: 0 0 25px rgba(34, 211, 238, 0.75), inset 0 0 15px rgba(34, 211, 238, 0.3) !important;
+            transform: translateY(-2px);
+        }
+
+        @media print { .no-print { display: none !important; } body { background-color: white !important; color: black !important; } }
+    </style>
+</head>
+<body class="min-h-screen pb-12">
+    <!-- Header Section -->
+    <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur-md sticky top-0 z-30 no-print">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col md:flex-row items-center justify-between gap-3">
+            <div class="flex items-center space-x-3">
+                <div class="p-2 gold-gradient text-slate-950 rounded-xl font-bold">
+                    <i data-lucide="wifi" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-extrabold text-white flex items-center gap-2">
+                        REKAPAN VOUCHER NSNET
+                    </h1>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+                <button onclick="saveToLocalStorage()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 transition">
+                    <i data-lucide="save" class="w-3.5 h-3.5"></i> Simpan
+                </button>
+                <button onclick="exportJSON()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 flex items-center gap-1.5">
+                    <i data-lucide="download" class="w-3.5 h-3.5 text-amber-400"></i> Ekspor
+                </button>
+                <label class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 flex items-center gap-1.5 cursor-pointer">
+                    <i data-lucide="upload" class="w-3.5 h-3.5 text-blue-400"></i> Impor
+                    <input type="file" id="import-file" accept=".json" class="hidden" onchange="importJSON(event)">
+                </label>
+                <button onclick="window.print()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 flex items-center gap-1.5">
+                    <i data-lucide="printer" class="w-3.5 h-3.5 text-purple-400"></i> Cetak/PDF
+                </button>
+                <button onclick="resetData()" class="px-3 py-1.5 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 text-xs font-semibold rounded-lg border border-rose-800/40 flex items-center gap-1.5">
+                    <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> Reset
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 pt-2.5 space-y-4">
+        <!-- Toast Notification -->
+        <div id="toast-alert" class="hidden fixed bottom-5 right-5 z-50 bg-slate-800 border border-emerald-500/50 text-emerald-400 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3">
+            <i data-lucide="check-circle" class="w-5 h-5 text-emerald-400"></i>
+            <span id="toast-message" class="text-sm font-medium">Data diperbarui!</span>
+        </div>
+
+        <!-- KPI Summary Cards (4 Kartu) - Diangkat Lebih Ke Atas & Padat -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 no-print">
+            <div class="bg-slate-900/90 p-3.5 rounded-2xl text-center card-glow-neon flex flex-col justify-center items-center">
+                <p class="text-xs md:text-sm font-extrabold uppercase text-slate-200 tracking-wide">TOTAL PENDAPATAN</p>
+                <h3 id="card-total-omset" class="text-xl md:text-2xl font-bold text-amber-400 mt-1">Rp 0</h3>
+            </div>
+            <div class="bg-slate-900/90 p-3.5 rounded-2xl text-center card-glow-neon flex flex-col justify-center items-center">
+                <p class="text-xs md:text-sm font-extrabold uppercase text-slate-200 tracking-wide">TOTAL POTONGAN DISKON</p>
+                <h3 id="card-total-diskon" class="text-xl md:text-2xl font-bold text-rose-400 mt-1">Rp 0</h3>
+            </div>
+            <div class="bg-slate-900/90 p-3.5 rounded-2xl text-center card-glow-neon flex flex-col justify-center items-center">
+                <p class="text-xs md:text-sm font-extrabold uppercase text-slate-200 tracking-wide">TOTAL VOUCHER TERJUAL</p>
+                <h3 id="card-total-terjual" class="text-xl md:text-2xl font-bold text-blue-400 mt-1">0 PCS</h3>
+            </div>
+            <div class="bg-slate-900/90 p-3.5 rounded-2xl text-center card-glow-neon flex flex-col justify-center items-center">
+                <p class="text-xs md:text-sm font-extrabold uppercase text-slate-200 tracking-wide">SISA STOK VOUCHER</p>
+                <h3 id="card-sisa-stok" class="text-xl md:text-2xl font-bold text-emerald-400 mt-1">0 PCS</h3>
+            </div>
+        </div>
+
+        <!-- 1. Stok Cetakan Voucher -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4">
+            <h2 class="text-sm md:text-base font-bold uppercase text-amber-400 mb-3 text-center">
+                1. STOK CETAKAN & PENGELUARAN VOUCHER
+            </h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                    <thead class="bg-slate-950 text-slate-400 uppercase font-semibold">
+                        <tr>
+                            <th class="p-2.5">NO</th>
+                            <th class="p-2.5">NAMA VOUCHER</th>
+                            <th class="p-2.5 text-center">HARGA RESELLER</th>
+                            <th class="p-2.5 text-center">STOK VOUCHER</th>
+                            <th class="p-2.5 text-center">VOUCHER KELUAR</th>
+                            <th class="p-2.5 text-center">LEMBARAN VOUCHER</th>
+                            <th class="p-2.5 text-center">VOUCHER TERJUAL</th>
+                            <th class="p-2.5 text-center">SISA VOUCHER KELUAR</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/60 font-medium text-sm">
+                        <tr>
+                            <td class="p-2.5 text-slate-500">1</td>
+                            <td class="p-2.5 font-bold text-white">VOUCHER - 3.000</td>
+                            <td class="p-2.5 text-center text-emerald-400 font-semibold">Rp 2.000</td>
+                            <td class="p-2.5 text-center">
+                                <input type="text" id="stok-3k" value="" placeholder="0" oninput="formatFormattedInput(this); calculateAll(); autoSave();" class="table-input text-center text-amber-400 font-bold text-base bg-slate-950/50 border-slate-800 w-32">
+                            </td>
+                            <td class="p-2.5 text-center">
+                                <input type="text" id="keluar-manual-3k" value="" placeholder="0" oninput="onManualKeluarInput('3k'); formatFormattedInput(this); calculateAll(); autoSave();" class="table-input text-center text-purple-400 font-bold text-base bg-slate-950/50 border-slate-800 w-32">
+                            </td>
+                            <td id="lembar-stok-3k" class="p-2.5 text-center font-bold text-slate-300">0 LEMBAR</td>
+                            <td id="keluar-3k" class="p-2.5 text-center font-bold text-blue-400">0 PCS</td>
+                            <td id="sisa-3k" class="p-2.5 text-center font-extrabold text-emerald-400">0 PCS</td>
+                        </tr>
+                        <tr>
+                            <td class="p-2.5 text-slate-500">2</td>
+                            <td class="p-2.5 font-bold text-white">VOUCHER - 5.000</td>
+                            <td class="p-2.5 text-center text-emerald-400 font-semibold">Rp 4.000</td>
+                            <td class="p-2.5 text-center">
+                                <input type="text" id="stok-5k" value="" placeholder="0" oninput="formatFormattedInput(this); calculateAll(); autoSave();" class="table-input text-center text-amber-400 font-bold text-base bg-slate-950/50 border-slate-800 w-32">
+                            </td>
+                            <td class="p-2.5 text-center">
+                                <input type="text" id="keluar-manual-5k" value="" placeholder="0" oninput="onManualKeluarInput('5k'); formatFormattedInput(this); calculateAll(); autoSave();" class="table-input text-center text-purple-400 font-bold text-base bg-slate-950/50 border-slate-800 w-32">
+                            </td>
+                            <td id="lembar-stok-5k" class="p-2.5 text-center font-bold text-slate-300">0 LEMBAR</td>
+                            <td id="keluar-5k" class="p-2.5 text-center font-bold text-blue-400">0 PCS</td>
+                            <td id="sisa-5k" class="p-2.5 text-center font-extrabold text-emerald-400">0 PCS</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 2. Tabel Rekapan Orderan Harian -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4">
+            <div class="pb-3 border-b border-slate-800 mb-3 text-center">
+                <h2 class="text-base md:text-lg font-bold uppercase text-amber-400">
+                    2. REKAPAN ORDERAN NITHA STUDIO
+                </h2>
+            </div>
+
+            <div class="overflow-x-auto rounded-xl border border-slate-800">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-slate-950 text-slate-400 uppercase font-semibold border-b border-slate-800 text-center">
+                        <tr>
+                            <th class="p-3 border-r border-slate-800">NO</th>
+                            <th class="p-3 border-r border-slate-800 min-w-[160px]">TANGGAL</th>
+                            <th class="p-3 border-r border-slate-800 min-w-[180px]">VOUCHER 3.000 TERJUAL</th>
+                            <th class="p-3 border-r border-slate-800 min-w-[180px]">VOUCHER 5.000 TERJUAL</th>
+                            <th class="p-3 border-r border-slate-800 min-w-[150px]">UANG MASUK 3.000</th>
+                            <th class="p-3 border-r border-slate-800 min-w-[150px]">UANG MASUK 5.000</th>
+                            <th class="p-3 border-r border-slate-800 min-w-[130px]">DISKON RESELLER</th>
+                            <th class="p-3 min-w-[150px]">TOTAL PENDAPATAN</th>
+                        </tr>
+                    </thead>
+                    <tbody id="daily-table-body" class="divide-y divide-slate-800/60 font-medium"></tbody>
+                    <tfoot class="bg-slate-950 font-bold text-slate-200 border-t-2 border-slate-800 text-sm">
+                        <tr>
+                            <td colspan="2" class="p-3 text-center text-amber-400 font-extrabold">TOTAL SELURUH PENJUALAN</td>
+                            <td id="foot-total-3k" class="p-3 text-center text-blue-400 text-base">0</td>
+                            <td id="foot-total-5k" class="p-3 text-center text-blue-400 text-base">0</td>
+                            <td id="foot-omset-3k" class="p-3 text-center text-slate-300">Rp 0</td>
+                            <td id="foot-omset-5k" class="p-3 text-center text-slate-300">Rp 0</td>
+                            <td id="foot-total-diskon" class="p-3 text-center text-rose-400">Rp 0</td>
+                            <td id="foot-total-omset" class="p-3 text-center text-amber-400 text-base font-extrabold bg-amber-500/10">Rp 0</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <!-- 3. Rekapan Keseluruhan Stok Voucher -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 text-center">
+            <h2 class="text-base md:text-lg font-bold uppercase text-amber-400 mb-4 pb-2 border-b border-slate-800 tracking-wide">
+                3. REKAPAN KESELURUHAN STOK VOUCHER
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-5 text-sm font-semibold">
+                <div class="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 flex flex-col justify-between items-center text-center">
+                    <span class="text-amber-400 text-base font-bold block mb-2 uppercase tracking-wide">STOK VOUCHER</span>
+                    <div class="space-y-1 text-slate-200 text-sm md:text-base font-medium my-2">
+                        <div>VOUCHER - 3.000 = <b id="foot-stok-3k" class="text-white font-bold">0 PCS</b></div>
+                        <div>VOUCHER - 5.000 = <b id="foot-stok-5k" class="text-white font-bold">0 PCS</b></div>
+                    </div>
+                    <div class="mt-3 pt-2.5 border-t border-slate-800/80 text-amber-400 text-sm md:text-base font-bold w-full flex justify-center items-center gap-2">
+                        <span>Total Stok =</span><span id="grand-total-cetak" class="text-lg md:text-xl font-extrabold">0 PCS</span>
+                    </div>
+                </div>
+
+                <div class="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 flex flex-col justify-between items-center text-center">
+                    <span class="text-blue-400 text-base font-bold block mb-2 uppercase tracking-wide">TOTAL VOUCHER TERJUAL</span>
+                    <div class="space-y-1 text-slate-200 text-sm md:text-base font-medium my-2">
+                        <div>VOUCHER - 3.000 = <b id="foot-terjual-3k" class="text-white font-bold">0 PCS</b></div>
+                        <div>VOUCHER - 5.000 = <b id="foot-terjual-5k" class="text-white font-bold">0 PCS</b></div>
+                    </div>
+                    <div class="mt-3 pt-2.5 border-t border-slate-800/80 text-blue-400 text-sm md:text-base font-bold w-full flex justify-center items-center gap-2">
+                        <span>Total Terjual =</span><span id="grand-total-terjual" class="text-lg md:text-xl font-extrabold">0 PCS</span>
+                    </div>
+                </div>
+
+                <div class="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 flex flex-col justify-between items-center text-center">
+                    <span class="text-emerald-400 text-base font-bold block mb-2 uppercase tracking-wide">SISA VOUCHER KELUAR</span>
+                    <div class="space-y-1 text-slate-200 text-sm md:text-base font-medium my-2">
+                        <div>VOUCHER - 3.000 = <b id="foot-sisa-3k" class="text-white font-bold">0 PCS</b></div>
+                        <div>VOUCHER - 5.000 = <b id="foot-sisa-5k" class="text-white font-bold">0 PCS</b></div>
+                    </div>
+                    <div class="mt-3 pt-2.5 border-t border-slate-800/80 text-emerald-400 text-sm md:text-base font-bold w-full flex justify-center items-center gap-2">
+                        <span>Total Sisa Keluar =</span><span id="grand-total-sisa" class="text-lg md:text-xl font-extrabold">0 PCS</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const STORAGE_KEY = 'WIFI_NS_2026_DATA_V38';
+        const PCS_PER_SHEET = 65;
+        let isManualKeluar3k = false;
+        let isManualKeluar5k = false;
+
+        let dailyData = Array.from({ length: 31 }, (_, index) => {
+            const day = String(index + 1).padStart(2, '0');
+            return {
+                no: index + 1,
+                date: `${day}/10/2026`,
+                v3k: 0,
+                v5k: 0
+            };
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            loadFromLocalStorage();
+            renderDailyTable();
+            calculateAll();
+        });
+
+        function formatNum(num) {
+            if (isNaN(num)) return '0';
+            return new Intl.NumberFormat('id-ID').format(num);
+        }
+
+        function formatRp(num) {
+            return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num);
+        }
+
+        function parseCleanNum(val) {
+            if (!val) return 0;
+            const str = String(val).replace(/\./g, '').replace(/,/g, '');
+            return parseInt(str) || 0;
+        }
+
+        function formatFormattedInput(inputElement) {
+            const rawVal = parseCleanNum(inputElement.value);
+            if (rawVal === 0 && inputElement.value === '') {
+                inputElement.value = '';
+            } else {
+                inputElement.value = formatNum(rawVal);
+            }
+        }
+
+        function renderDailyTable() {
+            const tbody = document.getElementById('daily-table-body');
+            tbody.innerHTML = '';
+            dailyData.forEach((row, index) => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-800/40 transition text-sm';
+
+                tr.innerHTML = `
+                    <td class="p-3 text-center text-slate-400 font-semibold border-r border-slate-800/60">${row.no}</td>
+                    <td class="p-2 border-r border-slate-800/60 text-center">
+                        <input type="text" id="date-input-${index}" value="${row.date || ''}" placeholder="DD/MM/YYYY" class="table-input text-slate-300 text-sm text-center">
+                    </td>
+                    <td class="p-2 border-r border-slate-800/60 text-center">
+                        <input type="text" value="${row.v3k ? formatNum(row.v3k) : ''}" placeholder="0" oninput="formatFormattedInput(this); updateRowData(${index}, 'v3k', this.value)" class="table-input text-center font-bold text-blue-400 text-sm">
+                    </td>
+                    <td class="p-2 border-r border-slate-800/60 text-center">
+                        <input type="text" value="${row.v5k ? formatNum(row.v5k) : ''}" placeholder="0" oninput="formatFormattedInput(this); updateRowData(${index}, 'v5k', this.value)" class="table-input text-center font-bold text-blue-400 text-sm">
+                    </td>
+                    <td class="p-3 text-center font-medium text-slate-300 border-r border-slate-800/60" id="row-total-3k-${index}">Rp 0</td>
+                    <td class="p-3 text-center font-medium text-slate-300 border-r border-slate-800/60" id="row-total-5k-${index}">Rp 0</td>
+                    <td class="p-3 text-center font-medium text-rose-400 border-r border-slate-800/60" id="row-diskon-${index}">Rp 0</td>
+                    <td class="p-3 text-center font-bold text-amber-400" id="row-total-omset-${index}">Rp 0</td>
+                `;
+                tbody.appendChild(tr);
+
+                flatpickr(`#date-input-${index}`, {
+                    dateFormat: "d/m/Y",
+                    allowInput: true,
+                    defaultDate: row.date || null,
+                    onChange: function(selectedDates, dateStr) {
+                        updateRowData(index, 'date', dateStr);
+                    }
+                });
+            });
+        }
+
+        function onManualKeluarInput(type) {
+            if (type === '3k') isManualKeluar3k = true;
+            if (type === '5k') isManualKeluar5k = true;
+        }
+
+        function updateRowData(index, field, value) {
+            if (field === 'v3k' || field === 'v5k') {
+                dailyData[index][field] = Math.max(0, parseCleanNum(value));
+            } else {
+                dailyData[index][field] = value;
+            }
+            calculateAll();
+            autoSave();
+        }
+
+        function calculateAll() {
+            let total3kSold = 0, total5kSold = 0;
+            dailyData.forEach((row, index) => {
+                const setoran3k = row.v3k * 2000;
+                const setoran5k = row.v5k * 4000;
+                const totalRowSetoran = setoran3k + setoran5k;
+                const rowTotalPcs = row.v3k + row.v5k;
+                const rowDiskon = rowTotalPcs * 1000;
+
+                total3kSold += row.v3k;
+                total5kSold += row.v5k;
+
+                document.getElementById(`row-total-3k-${index}`).innerText = formatRp(setoran3k);
+                document.getElementById(`row-total-5k-${index}`).innerText = formatRp(setoran5k);
+                document.getElementById(`row-diskon-${index}`).innerText = formatRp(rowDiskon);
+                document.getElementById(`row-total-omset-${index}`).innerText = formatRp(totalRowSetoran);
+            });
+
+            const stok3k = parseCleanNum(document.getElementById('stok-3k').value);
+            const stok5k = parseCleanNum(document.getElementById('stok-5k').value);
+
+            const inputKeluar3k = document.getElementById('keluar-manual-3k');
+            const inputKeluar5k = document.getElementById('keluar-manual-5k');
+
+            if (!isManualKeluar3k || inputKeluar3k.value === '') {
+                inputKeluar3k.value = total3kSold ? formatNum(total3kSold) : '';
+            }
+            if (!isManualKeluar5k || inputKeluar5k.value === '') {
+                inputKeluar5k.value = total5kSold ? formatNum(total5kSold) : '';
+            }
+
+            const keluarManual3k = parseCleanNum(inputKeluar3k.value);
+            const keluarManual5k = parseCleanNum(inputKeluar5k.value);
+
+            const sisaKeluar3k = keluarManual3k - total3kSold;
+            const sisaKeluar5k = keluarManual5k - total5kSold;
+            const totalSisaKeluar = sisaKeluar3k + sisaKeluar5k;
+
+            const sisaGudang3k = stok3k - keluarManual3k;
+            const sisaGudang5k = stok5k - keluarManual5k;
+            const totalSisaGudang = sisaGudang3k + sisaGudang5k;
+
+            const setoran3kTotal = total3kSold * 2000;
+            const setoran5kTotal = total5kSold * 4000;
+            const grandTotalSetoran = setoran3kTotal + setoran5kTotal;
+            const totalVoucherTerjual = total3kSold + total5kSold;
+            const grandTotalDiskon = totalVoucherTerjual * 1000;
+            const totalStokCetak = stok3k + stok5k;
+
+            document.getElementById('lembar-stok-3k').innerText = `${formatNum(Math.floor(stok3k/PCS_PER_SHEET))} LEMBAR`;
+            document.getElementById('lembar-stok-5k').innerText = `${formatNum(Math.floor(stok5k/PCS_PER_SHEET))} LEMBAR`;
+            
+            document.getElementById('keluar-3k').innerText = `${formatNum(total3kSold)} PCS`;
+            document.getElementById('keluar-5k').innerText = `${formatNum(total5kSold)} PCS`;
+            
+            const elSisa3k = document.getElementById('sisa-3k');
+            elSisa3k.innerText = `${formatNum(sisaKeluar3k)} PCS`;
+            elSisa3k.className = sisaKeluar3k < 0 ? 'p-2.5 text-center font-extrabold text-rose-500 animate-pulse' : 'p-2.5 text-center font-extrabold text-emerald-400';
+
+            const elSisa5k = document.getElementById('sisa-5k');
+            elSisa5k.innerText = `${formatNum(sisaKeluar5k)} PCS`;
+            elSisa5k.className = sisaKeluar5k < 0 ? 'p-2.5 text-center font-extrabold text-rose-500 animate-pulse' : 'p-2.5 text-center font-extrabold text-emerald-400';
+
+            document.getElementById('card-total-omset').innerText = formatRp(grandTotalSetoran);
+            document.getElementById('card-total-diskon').innerText = formatRp(grandTotalDiskon);
+            document.getElementById('card-total-terjual').innerText = `${formatNum(totalVoucherTerjual)} PCS`;
+
+            const cardStok = document.getElementById('card-sisa-stok');
+            cardStok.innerText = `${formatNum(totalSisaGudang)} PCS`;
+            cardStok.className = totalSisaGudang < 0 ? 'text-xl md:text-2xl font-bold text-rose-500 mt-1' : 'text-xl md:text-2xl font-bold text-emerald-400 mt-1';
+
+            document.getElementById('foot-total-3k').innerText = formatNum(total3kSold);
+            document.getElementById('foot-total-5k').innerText = formatNum(total5kSold);
+            document.getElementById('foot-omset-3k').innerText = formatRp(setoran3kTotal);
+            document.getElementById('foot-omset-5k').innerText = formatRp(setoran5kTotal);
+            document.getElementById('foot-total-diskon').innerText = formatRp(grandTotalDiskon);
+            document.getElementById('foot-total-omset').innerText = formatRp(grandTotalSetoran);
+
+            document.getElementById('foot-stok-3k').innerText = `${formatNum(stok3k)} PCS`;
+            document.getElementById('foot-stok-5k').innerText = `${formatNum(stok5k)} PCS`;
+            document.getElementById('grand-total-cetak').innerText = `${formatNum(totalStokCetak)} PCS`;
+
+            document.getElementById('foot-terjual-3k').innerText = `${formatNum(total3kSold)} PCS`;
+            document.getElementById('foot-terjual-5k').innerText = `${formatNum(total5kSold)} PCS`;
+            document.getElementById('grand-total-terjual').innerText = `${formatNum(totalVoucherTerjual)} PCS`;
+
+            const footSisa3k = document.getElementById('foot-sisa-3k');
+            footSisa3k.innerText = `${formatNum(sisaKeluar3k)} PCS`;
+            footSisa3k.className = sisaKeluar3k < 0 ? 'text-rose-500 font-bold' : 'text-white font-bold';
+
+            const footSisa5k = document.getElementById('foot-sisa-5k');
+            footSisa5k.innerText = `${formatNum(sisaKeluar5k)} PCS`;
+            footSisa5k.className = sisaKeluar5k < 0 ? 'text-rose-500 font-bold' : 'text-white font-bold';
+
+            const grandSisa = document.getElementById('grand-total-sisa');
+            grandSisa.innerText = `${formatNum(totalSisaKeluar)} PCS`;
+            grandSisa.className = totalSisaKeluar < 0 ? 'text-lg md:text-xl font-extrabold text-rose-500' : 'text-lg md:text-xl font-extrabold';
+        }
+
+        let saveTimeout;
+        function autoSave() { clearTimeout(saveTimeout); saveTimeout = setTimeout(() => saveToLocalStorage(false), 500); }
+        function saveToLocalStorage(showNotif = true) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                stok3k: document.getElementById('stok-3k').value,
+                stok5k: document.getElementById('stok-5k').value,
+                keluarManual3k: document.getElementById('keluar-manual-3k').value,
+                keluarManual5k: document.getElementById('keluar-manual-5k').value,
+                isManualKeluar3k: isManualKeluar3k,
+                isManualKeluar5k: isManualKeluar5k,
+                dailyData: dailyData
+            }));
+            if (showNotif) showToast('Data disimpan!');
+        }
+        function loadFromLocalStorage() {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    if (parsed.stok3k !== undefined) document.getElementById('stok-3k').value = parsed.stok3k;
+                    if (parsed.stok5k !== undefined) document.getElementById('stok-5k').value = parsed.stok5k;
+                    if (parsed.keluarManual3k !== undefined) document.getElementById('keluar-manual-3k').value = parsed.keluarManual3k;
+                    if (parsed.keluarManual5k !== undefined) document.getElementById('keluar-manual-5k').value = parsed.keluarManual5k;
+                    if (parsed.isManualKeluar3k !== undefined) isManualKeluar3k = parsed.isManualKeluar3k;
+                    if (parsed.isManualKeluar5k !== undefined) isManualKeluar5k = parsed.isManualKeluar5k;
+                    if (parsed.dailyData) dailyData = parsed.dailyData;
+                } catch (e) {}
+            }
+        }
+        function exportJSON() {
+            const blob = new Blob([JSON.stringify({ 
+                stok3k: document.getElementById('stok-3k').value, 
+                stok5k: document.getElementById('stok-5k').value, 
+                keluarManual3k: document.getElementById('keluar-manual-3k').value,
+                keluarManual5k: document.getElementById('keluar-manual-5k').value,
+                isManualKeluar3k: isManualKeluar3k,
+                isManualKeluar5k: isManualKeluar5k,
+                dailyData: dailyData 
+            }, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = `REKAPAN_WIFI_NS_2026_${new Date().toISOString().split('T')[0]}.json`; a.click();
+            URL.revokeObjectURL(url);
+            showToast('Backup diunduh!');
+        }
+        function importJSON(e) {
+            const file = e.target.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                try {
+                    const parsed = JSON.parse(evt.target.result);
+                    document.getElementById('stok-3k').value = parsed.stok3k || '';
+                    document.getElementById('stok-5k').value = parsed.stok5k || '';
+                    document.getElementById('keluar-manual-3k').value = parsed.keluarManual3k || '';
+                    document.getElementById('keluar-manual-5k').value = parsed.keluarManual5k || '';
+                    if (parsed.isManualKeluar3k !== undefined) isManualKeluar3k = parsed.isManualKeluar3k;
+                    if (parsed.isManualKeluar5k !== undefined) isManualKeluar5k = parsed.isManualKeluar5k;
+                    if (parsed.dailyData) dailyData = parsed.dailyData;
+                    renderDailyTable(); calculateAll(); saveToLocalStorage(false); showToast('Data diimpor!');
+                } catch (err) { alert('Format file salah!'); }
+            };
+            reader.readAsText(file);
+        }
+        function resetData() {
+            if (confirm('Reset ulang seluruh data?')) {
+                localStorage.removeItem(STORAGE_KEY);
+                document.getElementById('stok-3k').value = '';
+                document.getElementById('stok-5k').value = '';
+                document.getElementById('keluar-manual-3k').value = '';
+                document.getElementById('keluar-manual-5k').value = '';
+                isManualKeluar3k = false;
+                isManualKeluar5k = false;
+                dailyData = Array.from({ length: 31 }, (_, i) => {
+                    const day = String(i + 1).padStart(2, '0');
+                    return { no: i + 1, date: `${day}/10/2026`, v3k: 0, v5k: 0 };
+                });
+                renderDailyTable(); calculateAll(); showToast('Seluruh data berhasil di-reset!');
+            }
+        }
+        function showToast(msg) {
+            const toast = document.getElementById('toast-alert');
+            document.getElementById('toast-message').innerText = msg;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        }
+    </script>
+</body>
+</html>
