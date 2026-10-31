@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 
-    <!-- Firebase SDK (Version 8 Compatible) -->
+    <!-- Firebase SDK (Version 8 Compatible) untuk Realtime Database -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
@@ -236,15 +236,17 @@
     <script>
         // Konfigurasi Firebase Realtime Database
         const firebaseConfig = {
-            apiKey: "ISI_API_KEY_ANDA",
+            apiKey: "AIzaSyC-5GphZ8GOuh9ZbgugyxSrUW7_MzgjRII",
             authDomain: "rekapan-voucher-bulanan-nsnet.firebaseapp.com",
             databaseURL: "https://rekapan-voucher-bulanan-nsnet-default-rtdb.asia-southeast1.firebasedatabase.app",
             projectId: "rekapan-voucher-bulanan-nsnet",
-            storageBucket: "rekapan-voucher-bulanan-nsnet.appspot.com",
-            messagingSenderId: "ISI_MESSAGING_SENDER_ID",
-            appId: "ISI_APP_ID"
+            storageBucket: "rekapan-voucher-bulanan-nsnet.firebasestorage.app",
+            messagingSenderId: "569857279232",
+            appId: "1:569857279232:web:e54f91d95236169ab2dfe5",
+            measurementId: "G-1B6KK6N3CY"
         };
 
+        // Inisialisasi Firebase
         if (!firebase.apps.length) {
             firebase.initializeApp(firebaseConfig);
         }
@@ -468,14 +470,11 @@
                 dailyData: dailyData
             };
 
-            // Simpan ke Firebase Realtime Database
             dbRef.set(dataToSave).then(() => {
-                // Cadangan lokal juga agar tetap aman jika offline
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
                 if (showNotif) showToast('Data berhasil disimpan ke Firebase!');
             }).catch((error) => {
                 console.error("Gagal menyimpan ke Firebase: ", error);
-                // Fallback ke localStorage jika gagal koneksi
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
                 if (showNotif) showToast('Tersimpan secara lokal (Offline mode)!');
             });
@@ -495,7 +494,6 @@
                     renderDailyTable();
                     calculateAll();
                 } else {
-                    // Jika di database kosong, coba load dari localStorage
                     loadFromLocalStorage();
                 }
             }, (error) => {
