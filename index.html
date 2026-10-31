@@ -10,6 +10,11 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+    <!-- Firebase SDK (Version 8 Compatible) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
         body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #0f172a; color: #f8fafc; }
@@ -47,7 +52,7 @@
                 </div>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
-                <button onclick="saveToLocalStorage()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 transition">
+                <button onclick="saveDataManual()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 transition">
                     <i data-lucide="save" class="w-3.5 h-3.5"></i> Simpan
                 </button>
                 <button onclick="exportJSON()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 flex items-center gap-1.5">
@@ -229,6 +234,23 @@
     </main>
 
     <script>
+        // Konfigurasi Firebase Realtime Database
+        const firebaseConfig = {
+            apiKey: "ISI_API_KEY_ANDA",
+            authDomain: "rekapan-voucher-bulanan-nsnet.firebaseapp.com",
+            databaseURL: "https://rekapan-voucher-bulanan-nsnet-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "rekapan-voucher-bulanan-nsnet",
+            storageBucket: "rekapan-voucher-bulanan-nsnet.appspot.com",
+            messagingSenderId: "ISI_MESSAGING_SENDER_ID",
+            appId: "ISI_APP_ID"
+        };
+
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.database();
+        const dbRef = db.ref('rekapan_voucher');
+
         const STORAGE_KEY = 'WIFI_NS_2026_DATA_V38';
         const PCS_PER_SHEET = 65;
         let isManualKeluar3k = false;
@@ -246,7 +268,7 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
-            loadFromLocalStorage();
+            loadFromFirebase();
             renderDailyTable();
             calculateAll();
         });
@@ -426,9 +448,17 @@
         }
 
         let saveTimeout;
-        function autoSave() { clearTimeout(saveTimeout); saveTimeout = setTimeout(() => saveToLocalStorage(false), 500); }
-        function saveToLocalStorage(showNotif = true) {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        function autoSave() { 
+            clearTimeout(saveTimeout); 
+            saveTimeout = setTimeout(() => saveToFirebase(false), 800); 
+        }
+
+        function saveDataManual() {
+            saveToFirebase(true);
+        }
+
+        function saveToFirebase(showNotif = true) {
+            const dataToSave = {
                 stok3k: document.getElementById('stok-3k').value,
                 stok5k: document.getElementById('stok-5k').value,
                 keluarManual3k: document.getElementById('keluar-manual-3k').value,
@@ -436,9 +466,44 @@
                 isManualKeluar3k: isManualKeluar3k,
                 isManualKeluar5k: isManualKeluar5k,
                 dailyData: dailyData
-            }));
-            if (showNotif) showToast('Data disimpan!');
+            };
+
+            // Simpan ke Firebase Realtime Database
+            dbRef.set(dataToSave).then(() => {
+                // Cadangan lokal juga agar tetap aman jika offline
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+                if (showNotif) showToast('Data berhasil disimpan ke Firebase!');
+            }).catch((error) => {
+                console.error("Gagal menyimpan ke Firebase: ", error);
+                // Fallback ke localStorage jika gagal koneksi
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+                if (showNotif) showToast('Tersimpan secara lokal (Offline mode)!');
+            });
         }
+
+        function loadFromFirebase() {
+            dbRef.on('value', (snapshot) => {
+                const parsed = snapshot.val();
+                if (parsed) {
+                    if (parsed.stok3k !== undefined) document.getElementById('stok-3k').value = parsed.stok3k;
+                    if (parsed.stok5k !== undefined) document.getElementById('stok-5k').value = parsed.stok5k;
+                    if (parsed.keluarManual3k !== undefined) document.getElementById('keluar-manual-3k').value = parsed.keluarManual3k;
+                    if (parsed.keluarManual5k !== undefined) document.getElementById('keluar-manual-5k').value = parsed.keluarManual5k;
+                    if (parsed.isManualKeluar3k !== undefined) isManualKeluar3k = parsed.isManualKeluar3k;
+                    if (parsed.isManualKeluar5k !== undefined) isManualKeluar5k = parsed.isManualKeluar5k;
+                    if (parsed.dailyData) dailyData = parsed.dailyData;
+                    renderDailyTable();
+                    calculateAll();
+                } else {
+                    // Jika di database kosong, coba load dari localStorage
+                    loadFromLocalStorage();
+                }
+            }, (error) => {
+                console.error("Gagal membaca database: ", error);
+                loadFromLocalStorage();
+            });
+        }
+
         function loadFromLocalStorage() {
             const saved = localStorage.getItem(STORAGE_KEY);
             if (saved) {
@@ -451,9 +516,12 @@
                     if (parsed.isManualKeluar3k !== undefined) isManualKeluar3k = parsed.isManualKeluar3k;
                     if (parsed.isManualKeluar5k !== undefined) isManualKeluar5k = parsed.isManualKeluar5k;
                     if (parsed.dailyData) dailyData = parsed.dailyData;
+                    renderDailyTable();
+                    calculateAll();
                 } catch (e) {}
             }
         }
+
         function exportJSON() {
             const blob = new Blob([JSON.stringify({ 
                 stok3k: document.getElementById('stok-3k').value, 
@@ -469,6 +537,7 @@
             URL.revokeObjectURL(url);
             showToast('Backup diunduh!');
         }
+
         function importJSON(e) {
             const file = e.target.files[0]; if (!file) return;
             const reader = new FileReader();
@@ -482,27 +551,31 @@
                     if (parsed.isManualKeluar3k !== undefined) isManualKeluar3k = parsed.isManualKeluar3k;
                     if (parsed.isManualKeluar5k !== undefined) isManualKeluar5k = parsed.isManualKeluar5k;
                     if (parsed.dailyData) dailyData = parsed.dailyData;
-                    renderDailyTable(); calculateAll(); saveToLocalStorage(false); showToast('Data diimpor!');
+                    renderDailyTable(); calculateAll(); saveToFirebase(false); showToast('Data diimpor & disinkronkan!');
                 } catch (err) { alert('Format file salah!'); }
             };
             reader.readAsText(file);
         }
+
         function resetData() {
-            if (confirm('Reset ulang seluruh data?')) {
-                localStorage.removeItem(STORAGE_KEY);
-                document.getElementById('stok-3k').value = '';
-                document.getElementById('stok-5k').value = '';
-                document.getElementById('keluar-manual-3k').value = '';
-                document.getElementById('keluar-manual-5k').value = '';
-                isManualKeluar3k = false;
-                isManualKeluar5k = false;
-                dailyData = Array.from({ length: 31 }, (_, i) => {
-                    const day = String(i + 1).padStart(2, '0');
-                    return { no: i + 1, date: `${day}/10/2026`, v3k: 0, v5k: 0 };
+            if (confirm('Reset ulang seluruh data di Firebase dan aplikasi?')) {
+                dbRef.remove().then(() => {
+                    localStorage.removeItem(STORAGE_KEY);
+                    document.getElementById('stok-3k').value = '';
+                    document.getElementById('stok-5k').value = '';
+                    document.getElementById('keluar-manual-3k').value = '';
+                    document.getElementById('keluar-manual-5k').value = '';
+                    isManualKeluar3k = false;
+                    isManualKeluar5k = false;
+                    dailyData = Array.from({ length: 31 }, (_, i) => {
+                        const day = String(i + 1).padStart(2, '0');
+                        return { no: i + 1, date: `${day}/10/2026`, v3k: 0, v5k: 0 };
+                    });
+                    renderDailyTable(); calculateAll(); showToast('Seluruh data berhasil di-reset!');
                 });
-                renderDailyTable(); calculateAll(); showToast('Seluruh data berhasil di-reset!');
             }
         }
+
         function showToast(msg) {
             const toast = document.getElementById('toast-alert');
             document.getElementById('toast-message').innerText = msg;
